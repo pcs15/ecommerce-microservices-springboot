@@ -1,0 +1,566 @@
+{
+  "info": {
+    "name": "TR Microservices",
+    "description": "Auth Service, API Gateway, Customer Service, Product Service, Order Service, Karyawan/Employee Service (Karyawan + Absensi + Izin-Cuti). Semua request lewat API Gateway (port 8080).\n\nFolder disusun PER SERVICE (Auth, Customer, Product, Order, Karyawan), isinya endpoint lintas role (admin/employee/user campur, tinggal lihat header Authorization tiap request pakai token siapa).\n\nCara pakai: jalankan folder \"Auth\" dulu dari atas ke bawah (register + login semua role + bikin akun employee) - urutan di dalam folder ini penting karena saling gantung. Abis itu folder Customer/Product/Order/Karyawan bisa dipakai bebas satu-satu.\n\nCatatan kalau mau Run Collection penuh: jalankan folder Auth -> Product -> Customer -> Order -> Karyawan. Request \"Delete ...\" sengaja ditaruh paling bawah di tiap folder - kalau di-run juga (Run Collection default jalanin semua request), data yang baru dibikin bakal ikut kehapus sebelum dipakai folder sesudahnya. Skip request Delete di collection runner kalau mau full run tanpa gangguan, atau jalankan manual belakangan.\n\nSetiap request Login otomatis nyimpen token ke collection variable (admin_token/user_token/employee_token) lewat test script. ID resource yang baru dibikin (productId, customerId, karyawanId, absensiId, izinId, employeeUserId) juga otomatis kesimpen dengan cara yang sama.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "admin_token", "value": "" },
+    { "key": "user_token", "value": "" },
+    { "key": "employee_token", "value": "" },
+    { "key": "employeeUserId", "value": "" },
+    { "key": "targetUserId", "value": "" },
+    { "key": "customerId", "value": "1" },
+    { "key": "productId", "value": "1" },
+    { "key": "karyawanId", "value": "" },
+    { "key": "absensiId", "value": "" },
+    { "key": "izinId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User Biasa (budi -> ROLE_USER)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"budi\",\n  \"password\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login ADMIN (auto-save admin_token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.token) { pm.collectionVariables.set('admin_token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Tambah Employee (karyawan1, ADMIN-only, auto-save employeeUserId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.collectionVariables.set('employeeUserId', String(body.id));",
+                  "  pm.collectionVariables.set('targetUserId', String(body.id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"karyawan1\",\n  \"password\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/employees"
+          }
+        },
+        {
+          "name": "Login EMPLOYEE (auto-save employee_token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.token) { pm.collectionVariables.set('employee_token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"karyawan1\",\n  \"password\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login USER/customer (auto-save user_token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.token) { pm.collectionVariables.set('user_token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"budi\",\n  \"password\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Ganti Password Sendiri (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"admin123\",\n  \"newPassword\": \"admin123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password"
+          }
+        },
+        {
+          "name": "Ganti Password Sendiri (Employee)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{employee_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"pass123\",\n  \"newPassword\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password"
+          }
+        },
+        {
+          "name": "Ganti Password Sendiri (User)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{user_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"pass123\",\n  \"newPassword\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password"
+          }
+        },
+        {
+          "name": "Reset Password User Lain (ADMIN-only, pakai targetUserId)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"pass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/users/{{targetUserId}}/password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "Get All Products (semua role)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{baseUrl}}/api/products"
+          }
+        },
+        {
+          "name": "Get Product By Id (semua role)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Create Product (ADMIN-only, auto-save productId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('productId', String(body.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kaos\",\n  \"price\": 50000,\n  \"stock\": 10,\n  \"category\": \"Fashion\"\n}"
+            },
+            "url": "{{baseUrl}}/api/products"
+          }
+        },
+        {
+          "name": "Update Product (ADMIN-only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kaos Polos\",\n  \"price\": 55000,\n  \"stock\": 10,\n  \"category\": \"Fashion\"\n}"
+            },
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Delete Product (ADMIN-only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Buat Profil Customer Sendiri (USER, auto-save customerId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('customerId', String(body.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{user_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Budi\",\n  \"email\": \"budi@test.com\",\n  \"address\": \"Jakarta\"\n}"
+            },
+            "url": "{{baseUrl}}/api/customers"
+          }
+        },
+        {
+          "name": "Get All Customers (ADMIN-only)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/customers"
+          }
+        },
+        {
+          "name": "Get Customer By Id (ADMIN bebas, USER cuma punya sendiri)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/customers/{{customerId}}"
+          }
+        },
+        {
+          "name": "Delete Customer (ADMIN bebas, USER cuma punya sendiri)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/customers/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order",
+      "item": [
+        {
+          "name": "Checkout / Buat Order (USER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{user_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"productId\": {{productId}},\n  \"quantity\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/orders"
+          }
+        },
+        {
+          "name": "Get All Orders (as ADMIN - lihat semua)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/orders"
+          }
+        },
+        {
+          "name": "Get All Orders (as USER - lihat punya sendiri)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{user_token}}" }],
+            "url": "{{baseUrl}}/api/orders"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Karyawan (Karyawan + Absensi + Izin-Cuti)",
+      "item": [
+        {
+          "name": "Get All Karyawan (ADMIN-only)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/karyawan"
+          }
+        },
+        {
+          "name": "Create Karyawan (ADMIN-only, link ke employeeUserId, auto-save karyawanId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('karyawanId', String(body.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Karyawan Satu\",\n  \"email\": \"k1@test.com\",\n  \"jabatan\": \"Staff Gudang\",\n  \"userId\": \"{{employeeUserId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/karyawan"
+          }
+        },
+        {
+          "name": "Get My Profile / me (EMPLOYEE)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{employee_token}}" }],
+            "url": "{{baseUrl}}/api/karyawan/me"
+          }
+        },
+        {
+          "name": "Update Karyawan (ADMIN-only)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Karyawan Satu Updated\",\n  \"email\": \"k1@test.com\",\n  \"jabatan\": \"Kepala Gudang\"\n}"
+            },
+            "url": "{{baseUrl}}/api/karyawan/{{karyawanId}}"
+          }
+        },
+        {
+          "name": "Absen / Create Absensi (EMPLOYEE, auto-save absensiId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('absensiId', String(body.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{employee_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"2026-07-24\",\n  \"jamMasuk\": \"08:00:00\",\n  \"status\": \"HADIR\"\n}"
+            },
+            "url": "{{baseUrl}}/api/absensi"
+          }
+        },
+        {
+          "name": "Get Absensi Saya by karyawanId (EMPLOYEE)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{employee_token}}" }],
+            "url": "{{baseUrl}}/api/absensi/karyawan/{{karyawanId}}"
+          }
+        },
+        {
+          "name": "Update Absensi Saya (EMPLOYEE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{employee_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"2026-07-24\",\n  \"jamMasuk\": \"08:00:00\",\n  \"jamPulang\": \"17:00:00\",\n  \"status\": \"HADIR\"\n}"
+            },
+            "url": "{{baseUrl}}/api/absensi/{{absensiId}}"
+          }
+        },
+        {
+          "name": "Get All Absensi (ADMIN-only)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/absensi"
+          }
+        },
+        {
+          "name": "Ajukan Izin/Cuti (EMPLOYEE, auto-save izinId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body && body.id) { pm.collectionVariables.set('izinId', String(body.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{employee_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jenisIzin\": \"Cuti Tahunan\",\n  \"tanggalMulai\": \"2026-08-01\",\n  \"tanggalSelesai\": \"2026-08-03\",\n  \"alasan\": \"Liburan keluarga\"\n}"
+            },
+            "url": "{{baseUrl}}/api/izin-cuti"
+          }
+        },
+        {
+          "name": "Update Izin/Cuti Saya (EMPLOYEE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{employee_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jenisIzin\": \"Cuti Tahunan\",\n  \"tanggalMulai\": \"2026-08-02\",\n  \"tanggalSelesai\": \"2026-08-04\",\n  \"alasan\": \"Liburan keluarga (revisi tanggal)\"\n}"
+            },
+            "url": "{{baseUrl}}/api/izin-cuti/{{izinId}}"
+          }
+        },
+        {
+          "name": "Get All Izin-Cuti (ADMIN-only)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/izin-cuti"
+          }
+        },
+        {
+          "name": "Get Izin-Cuti By Status (ADMIN-only)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/izin-cuti/status?status=PENDING"
+          }
+        },
+        {
+          "name": "Approve/Reject Izin-Cuti (ADMIN-only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/izin-cuti/{{izinId}}/approval?status=APPROVED"
+          }
+        },
+        {
+          "name": "Delete Absensi (ADMIN-only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/absensi/{{absensiId}}"
+          }
+        },
+        {
+          "name": "Delete Izin-Cuti (ADMIN-only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/izin-cuti/{{izinId}}"
+          }
+        },
+        {
+          "name": "Delete Karyawan (ADMIN-only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "url": "{{baseUrl}}/api/karyawan/{{karyawanId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
